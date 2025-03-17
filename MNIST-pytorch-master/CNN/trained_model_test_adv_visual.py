@@ -65,13 +65,15 @@ def test_with_attack(model, device, test_loader, epsilon):
         correct_adv += pred_adv.eq(target.view_as(pred_adv)).sum().item()
 
     total = len(test_loader.dataset)
+    clean_acc = 100. * correct_clean / total
+    adv_acc = 100. * correct_adv / total
     print("-----------------------------------------------------")
     print("对抗攻击测试结果:")
     print("扰动强度 epsilon = {:.3f}".format(epsilon))
-    print("真实样本识别准确率: {}/{} ({:.2f}%)".format(correct_clean, total, 100. * correct_clean / total))
-    print("对抗样本识别准确率: {}/{} ({:.2f}%)".format(correct_adv, total, 100. * correct_adv / total))
+    print("真实样本识别准确率: {}/{} ({:.2f}%)".format(correct_clean, total, clean_acc))
+    print("对抗样本识别准确率: {}/{} ({:.2f}%)".format(correct_adv, total, adv_acc))
     print("-----------------------------------------------------")
-
+    return clean_acc, adv_acc  # 新增返回值
 
 def visualize_adversarial_examples(model, device, test_loader, epsilon, num_examples=5):
     """
@@ -118,6 +120,25 @@ def visualize_adversarial_examples(model, device, test_loader, epsilon, num_exam
         plt.show()
 
 
+def plot_accuracy_vs_epsilon(model, device, test_loader, epsilons):
+    """绘制准确率随epsilon变化的曲线"""
+    clean_accs = []
+    adv_accs = []
+    for eps in epsilons:
+        clean_acc, adv_acc = test_with_attack(model, device, test_loader, eps)
+        clean_accs.append(clean_acc)
+        adv_accs.append(adv_acc)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(epsilons, clean_accs, 'b-', label='干净样本准确率', marker='o')
+    plt.plot(epsilons, adv_accs, 'r--', label='对抗样本准确率', marker='s')
+    plt.title("识别准确率 vs 扰动强度")
+    plt.xlabel("扰动强度 (epsilon)")
+    plt.ylabel("准确率 (%)")
+    plt.ylim(0, 100)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 def main():
     # 开始：判断设备
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -142,13 +163,24 @@ def main():
     model.load_state_dict(torch.load(model_path, map_location=device))
 
     # 设置 FGSM 攻击扰动强度 epsilon（可调）
-    epsilon = 0.6
+    # epsilon = 0.6
+
+    # 设置测试的epsilon范围
+    epsilons = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+
+    # 1. 测试单个epsilon的准确率（可选）
+    # test_with_attack(model, device, test_loader, epsilon=0.3)
+
+    # 2. 绘制准确率随epsilon变化的曲线（新增）
+    plot_accuracy_vs_epsilon(model, device, test_loader, epsilons)
+
+    # 3. 可视化对抗样本（可选）
+    # visualize_adversarial_examples(model, device, test_loader, epsilon=0.3)
 
     # 1. 对抗攻击：测试干净样本与对抗样本的识别准确率
-    test_with_attack(model, device, test_loader, epsilon)
-
+    # test_with_attack(model, device, test_loader, epsilon)
     # 2. 可视化：展示部分样本的原始图像与扰动后图像
-    visualize_adversarial_examples(model, device, test_loader, epsilon, num_examples=5)
+    # visualize_adversarial_examples(model, device, test_loader, epsilon, num_examples=5)
 
 
 if __name__ == '__main__':
