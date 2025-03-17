@@ -5,9 +5,18 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from model import CNN  # 您的CNN模型定义在model.py中
 import matplotlib
+import logging
+# 配置日志记录
+logging.basicConfig(
+    filename="fgsm_attack.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    filemode="w"
+)
+
+
 matplotlib.rcParams['font.sans-serif'] = ['SimHei']  # 使用黑体来显示中文
 matplotlib.rcParams['axes.unicode_minus'] = False    # 解决负号显示问题
-
 
 def fgsm_attack(model, loss_fn, data, target, epsilon):
     """
@@ -67,6 +76,14 @@ def test_with_attack(model, device, test_loader, epsilon):
     total = len(test_loader.dataset)
     clean_acc = 100. * correct_clean / total
     adv_acc = 100. * correct_adv / total
+
+    # 记录到日志文件
+    logging.info("-----------------------------------------------------")
+    logging.info(f"扰动强度 epsilon = {epsilon:.3f}")
+    logging.info(f"真实样本识别准确率: {correct_clean}/{total} ({clean_acc:.2f}%)")
+    logging.info(f"对抗样本识别准确率: {correct_adv}/{total} ({adv_acc:.2f}%)")
+    logging.info("-----------------------------------------------------")
+
     print("-----------------------------------------------------")
     print("对抗攻击测试结果:")
     print("扰动强度 epsilon = {:.3f}".format(epsilon))
@@ -139,6 +156,11 @@ def plot_accuracy_vs_epsilon(model, device, test_loader, epsilons):
     plt.legend()
     plt.grid(True)
     plt.show()
+    # 记录结果到日志
+    logging.info("epsilon 变化 vs 识别准确率:")
+    for eps, clean, adv in zip(epsilons, clean_accs, adv_accs):
+        logging.info(f"Epsilon={eps:.2f}, 干净样本准确率={clean:.2f}%, 对抗样本准确率={adv:.2f}%")
+
 def main():
     # 开始：判断设备
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -159,6 +181,7 @@ def main():
     device_type = "GPU" if torch.cuda.is_available() else "CPU"
     # 请根据实际情况修改模型权重保存路径
     model_path = "./{}/CNN.pth".format(device_type)
+    logging.info(f"正在载入 {device_type} 训练的模型...")
     print("正在载入 {} 训练的模型...".format(device_type))
     model.load_state_dict(torch.load(model_path, map_location=device))
 
